@@ -1,5 +1,6 @@
 # Panfactum OpenTofu / Terraform Provider
 
+A utility provider used in the [Panfactum Stack.](https://github.com/Panfactum/stack)
 
 ## Contributing
 

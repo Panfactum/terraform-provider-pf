@@ -35,6 +35,7 @@
           name = "devShell";
           buildInputs = with pkgs; [
             tf-pkgs.opentofu
+            tf-pkgs.terraform
             go-pkgs.go_1_22
           ];
           shellHook = ''

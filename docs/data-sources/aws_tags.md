@@ -3,12 +3,12 @@
 page_title: "pf_aws_tags Data Source - pf"
 subcategory: ""
 description: |-
-  Example data source
+  Provides the standard set of Panfactum resource tags for AWS resources
 ---
 
 # pf_aws_tags (Data Source)
 
-Example data source
+Provides the standard set of Panfactum resource tags for AWS resources
 
 
 

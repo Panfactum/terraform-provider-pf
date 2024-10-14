@@ -3,12 +3,12 @@
 page_title: "pf_kube_labels Data Source - pf"
 subcategory: ""
 description: |-
-  Example data source
+  Provides the standard set of Panfactum resource labels for Kubernetes resources
 ---
 
 # pf_kube_labels (Data Source)
 
-Example data source
+Provides the standard set of Panfactum resource labels for Kubernetes resources
 
 
 

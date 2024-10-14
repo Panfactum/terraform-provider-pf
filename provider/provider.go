@@ -38,27 +38,27 @@ func (p *PanfactumProvider) Schema(ctx context.Context, req provider.SchemaReque
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"environment": schema.StringAttribute{
-				Required:            true,
+				Optional:            true,
 				Description:         "The name of the environment that you are currently deploying infrastructure to",
 				MarkdownDescription: "The name of the environment that you are currently deploying infrastructure to",
 			},
 			"region": schema.StringAttribute{
-				Required:            true,
+				Optional:            true,
 				Description:         "The name of the region that you are currently deploying infrastructure to",
 				MarkdownDescription: "The name of the region that you are currently deploying infrastructure to",
 			},
 			"root_module": schema.StringAttribute{
-				Required:            true,
+				Optional:            true,
 				Description:         "The name of the root / top-level module that you are currently deploying infrastructure with",
 				MarkdownDescription: "The name of the root / top-level module that you are currently deploying infrastructure with",
 			},
 			"stack_version": schema.StringAttribute{
-				Required:            true,
+				Optional:            true,
 				Description:         "The version of the Panfactum Stack that you are currently using",
 				MarkdownDescription: "The version of the Panfactum Stack that you are currently using",
 			},
 			"stack_commit": schema.StringAttribute{
-				Required:            true,
+				Optional:            true,
 				Description:         "The commit hash of the Panfactum Stack that you are currently using",
 				MarkdownDescription: "The commit hash of the Panfactum Stack that you are currently using",
 			},
@@ -96,6 +96,7 @@ func (p *PanfactumProvider) DataSources(ctx context.Context) []func() datasource
 
 func (p *PanfactumProvider) Functions(ctx context.Context) []func() function.Function {
 	return []func() function.Function{
-		NewLowercasedFunction,
+		NewSanitizeAWSTagsFunction,
+		NewSanitizeKubeLabelsFunction,
 	}
 }

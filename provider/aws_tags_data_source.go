@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: Apache-2.0
 
 package provider
 
@@ -10,7 +10,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"regexp"
 )
 
 /**************************************************************
@@ -39,7 +38,8 @@ func (d *awsTagsDataSource) Metadata(ctx context.Context, req datasource.Metadat
 
 func (d *awsTagsDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Example data source",
+		Description:         "Provides the standard set of Panfactum resource tags for AWS resources",
+		MarkdownDescription: "Provides the standard set of Panfactum resource tags for AWS resources",
 
 		Attributes: map[string]schema.Attribute{
 			"tags": schema.MapAttribute{
@@ -91,26 +91,29 @@ func (d *awsTagsDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
-	labels := map[string]attr.Value{
-		"panfactum.com/environment":   sanitizeAWSTagValue(d.ProviderData.Environment),
-		"panfactum.com/stack-version": sanitizeAWSTagValue(d.ProviderData.StackVersion),
-		"panfactum.com/stack-commit":  sanitizeAWSTagValue(d.ProviderData.StackCommit),
-		"panfactum.com/local":         types.StringValue(d.ProviderData.IsLocal.String()),
-		"panfactum.com/root-module":   sanitizeAWSTagValue(d.ProviderData.RootModule),
-		"panfactum.com/module":        sanitizeAWSTagValue(data.Module),
+	tags := map[string]attr.Value{
+		"panfactum.com/local": types.StringValue(d.ProviderData.IsLocal.String()),
 	}
+
+	// Set the default tags from the provider
+	setAWSTag(tags, "panfactum.com/environment", d.ProviderData.Environment)
+	setAWSTag(tags, "panfactum.com/stack-version", d.ProviderData.StackVersion)
+	setAWSTag(tags, "panfactum.com/stack-commit", d.ProviderData.StackCommit)
+	setAWSTag(tags, "panfactum.com/root-module", d.ProviderData.RootModule)
+	setAWSTag(tags, "panfactum.com/module", data.Module)
 
 	// Allow the region to be overridden
-	trueRegion := d.ProviderData.Region
+	var region = d.ProviderData.Region
 	if !data.RegionOverride.IsNull() && !data.RegionOverride.IsUnknown() {
-		trueRegion = data.RegionOverride
+		region = data.RegionOverride
 	}
-	labels["panfactum.com/region"] = sanitizeAWSTagValue(trueRegion)
+	setAWSTag(tags, "panfactum.com/region", region)
 
+	// Iterate over the extra tags and set them one-by-one
 	for key, value := range (d.ProviderData.ExtraTags).Elements() {
 		strValue, ok := value.(types.String)
 		if ok {
-			labels[sanitizeAWSTagKey(key)] = sanitizeAWSTagValue(strValue)
+			setAWSTag(tags, key, strValue)
 		} else {
 			resp.Diagnostics.AddError(
 				"Invalid type found",
@@ -120,7 +123,7 @@ func (d *awsTagsDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		}
 	}
 
-	data.Tags, _ = types.MapValue(types.StringType, labels)
+	data.Tags, _ = types.MapValue(types.StringType, tags)
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -130,12 +133,12 @@ func (d *awsTagsDataSource) Read(ctx context.Context, req datasource.ReadRequest
   Utility Functions
  **************************************************************/
 
-func sanitizeAWSTagKey(input string) string {
-	re := regexp.MustCompile(`[^a-zA-Z0-9.:/_@+=-]`)
-	return re.ReplaceAllString(input, ".")
+func setAWSTag(tags map[string]attr.Value, key string, value types.String) {
+	if !value.IsNull() && !value.IsUnknown() {
+		tags[sanitizeAWSTagKey(key)] = sanitizeAWSTagValueWrapped(value)
+	}
 }
 
-func sanitizeAWSTagValue(input types.String) types.String {
-	re := regexp.MustCompile(`[^a-zA-Z0-9.:/_@+=-]`)
-	return types.StringValue(re.ReplaceAllString(input.ValueString(), "."))
+func sanitizeAWSTagValueWrapped(input types.String) types.String {
+	return types.StringValue(sanitizeAWSTagValue(input.ValueString()))
 }

@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: Apache-2.0
 
 package provider
 
@@ -10,9 +10,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"regexp"
-	"strings"
-	"unicode"
 )
 
 /**************************************************************
@@ -40,7 +37,8 @@ func (d *kubeLabelsDataSource) Metadata(ctx context.Context, req datasource.Meta
 
 func (d *kubeLabelsDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Example data source",
+		Description:         "Provides the standard set of Panfactum resource labels for Kubernetes resources",
+		MarkdownDescription: "Provides the standard set of Panfactum resource labels for Kubernetes resources",
 
 		Attributes: map[string]schema.Attribute{
 			"labels": schema.MapAttribute{
@@ -88,19 +86,21 @@ func (d *kubeLabelsDataSource) Read(ctx context.Context, req datasource.ReadRequ
 	}
 
 	labels := map[string]attr.Value{
-		"panfactum.com/environment":   sanitizeKubeLabelValue(d.ProviderData.Environment),
-		"panfactum.com/region":        sanitizeKubeLabelValue(d.ProviderData.Region),
-		"panfactum.com/stack-version": sanitizeKubeLabelValue(d.ProviderData.StackVersion),
-		"panfactum.com/stack-commit":  sanitizeKubeLabelValue(d.ProviderData.StackCommit),
-		"panfactum.com/local":         types.StringValue(d.ProviderData.IsLocal.String()),
-		"panfactum.com/root-module":   sanitizeKubeLabelValue(d.ProviderData.RootModule),
-		"panfactum.com/module":        sanitizeKubeLabelValue(data.Module),
+		"panfactum.com/local": types.StringValue(d.ProviderData.IsLocal.String()),
 	}
+
+	// Set the default labels from the provider
+	setKubeLabel(labels, "panfactum.com/environment", d.ProviderData.Environment)
+	setKubeLabel(labels, "panfactum.com/region", d.ProviderData.Region)
+	setKubeLabel(labels, "panfactum.com/stack-version", d.ProviderData.StackVersion)
+	setKubeLabel(labels, "panfactum.com/stack-commit", d.ProviderData.StackCommit)
+	setKubeLabel(labels, "panfactum.com/root-module", d.ProviderData.RootModule)
+	setKubeLabel(labels, "panfactum.com/module", data.Module)
 
 	for key, value := range (d.ProviderData.ExtraTags).Elements() {
 		strValue, ok := value.(types.String)
 		if ok {
-			labels[sanitizeKubeLabelKey(key)] = sanitizeKubeLabelValue(strValue)
+			labels[sanitizeKubeLabelKey(key)] = sanitizeKubeLabelValueWrapped(strValue)
 		} else {
 			resp.Diagnostics.AddError(
 				"Invalid type found",
@@ -120,34 +120,12 @@ func (d *kubeLabelsDataSource) Read(ctx context.Context, req datasource.ReadRequ
   Utility Functions
  **************************************************************/
 
-// sanitizeKubeLabelValue performs the required sanitization steps:
-// 1. Replaces any non-alphanumeric, '.', '_', or '-' characters with '.'
-// 2. Ensures the string starts and ends with an alphanumeric character
-func sanitizeKubeLabelValue(input types.String) types.String {
-	// Replace any non-alphanumeric, '.', '_', or '-' characters with '.'
-	re := regexp.MustCompile(`[^a-zA-Z0-9._-]`)
-	sanitized := re.ReplaceAllString(input.ValueString(), ".")
-
-	// Trim any leading or trailing non-alphanumeric characters
-	sanitized = strings.TrimFunc(sanitized, func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
-	})
-
-	return types.StringValue(sanitized)
+func setKubeLabel(tags map[string]attr.Value, key string, value types.String) {
+	if !value.IsNull() && !value.IsUnknown() {
+		tags[sanitizeKubeLabelKey(key)] = sanitizeKubeLabelValueWrapped(value)
+	}
 }
 
-// sanitizeKubeLabelKey performs the required sanitization steps:
-// 1. Replaces any non-alphanumeric, '.', '_', '-', or '/' characters with '.'
-// 2. Ensures the string starts and ends with an alphanumeric character
-func sanitizeKubeLabelKey(input string) string {
-	// Replace any non-alphanumeric, '.', '_', '-', or '/' characters with '.'
-	re := regexp.MustCompile(`[^a-zA-Z0-9._/-]`)
-	sanitized := re.ReplaceAllString(input, ".")
-
-	// Trim any leading or trailing non-alphanumeric characters
-	sanitized = strings.TrimFunc(sanitized, func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
-	})
-
-	return sanitized
+func sanitizeKubeLabelValueWrapped(input types.String) types.String {
+	return types.StringValue(sanitizeKubeLabelValue(input.ValueString()))
 }

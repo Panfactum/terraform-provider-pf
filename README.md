@@ -4,6 +4,33 @@ A utility provider used in the [Panfactum Stack.](https://github.com/Panfactum/s
 
 ## Contributing
 
+### Testing Changes Locally
+
+If you want to test provider changes using local IaC, you can do that by executing the following steps:
+
+1. Add a `.terraformrc` to your IaC repository with the following values. Change `<path_to_this_repo>`
+to an absolute path to the local copy of this provider repository on your local machine.
+
+    ```hcl
+    provider_installation {
+
+        dev_overrides {
+            "panfactum/pf" = "<path_to_this_repo>/go/bin"
+        }
+
+        # For all other providers, install them directly from their origin provider
+        # registries as normal. If you omit this, Terraform will _only_ use
+        # the dev_overrides block, and so no other providers will be available.
+        direct {}
+    }
+    ```
+
+2. Set the `TF_CLI_CONFIG_FILE` to an absolute path to the above `.terraformrc` file.
+
+3. Make any desired updates to the provider code.
+
+4. After anytime you make code updates, run `go install` to make the new provider binary available to your local IaC.
+
 ### Release Process
 
 The release process is configured according

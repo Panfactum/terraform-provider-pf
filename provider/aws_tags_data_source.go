@@ -23,7 +23,7 @@ func NewAWSTagsDataSource() datasource.DataSource {
 }
 
 type awsTagsDataSource struct {
-	ProviderData *PanfactumProviderModel
+	ProviderData *PanfactumProvider
 }
 
 type awsLabelsDataSourceModel struct {
@@ -67,7 +67,7 @@ func (d *awsTagsDataSource) Configure(ctx context.Context, req datasource.Config
 		return
 	}
 
-	data, ok := req.ProviderData.(*PanfactumProviderModel)
+	data, ok := req.ProviderData.(*PanfactumProvider)
 
 	if !ok {
 		resp.Diagnostics.AddError(

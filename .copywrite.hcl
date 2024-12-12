@@ -6,6 +6,8 @@ project {
   copyright_year = 2024
 
   header_ignore = [
+    "go/**",
+    
     # examples used within documentation (prose)
     "examples/**",
 

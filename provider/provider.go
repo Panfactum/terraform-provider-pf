@@ -5,25 +5,34 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"gopkg.in/yaml.v3"
+	"os"
+	"path/filepath"
 )
 
 type PanfactumProvider struct {
+	*PanfactumProviderModel
+	KubeConfigPath string
 }
 
 type PanfactumProviderModel struct {
-	Environment  types.String `tfsdk:"environment"`
-	Region       types.String `tfsdk:"region"`
-	RootModule   types.String `tfsdk:"root_module"`
-	StackVersion types.String `tfsdk:"stack_version"`
-	StackCommit  types.String `tfsdk:"stack_commit"`
-	IsLocal      types.Bool   `tfsdk:"is_local"`
-	ExtraTags    types.Map    `tfsdk:"extra_tags"`
+	Environment       types.String `tfsdk:"environment"`
+	Region            types.String `tfsdk:"region"`
+	RootModule        types.String `tfsdk:"root_module"`
+	StackVersion      types.String `tfsdk:"stack_version"`
+	StackCommit       types.String `tfsdk:"stack_commit"`
+	IsLocal           types.Bool   `tfsdk:"is_local"`
+	ExtraTags         types.Map    `tfsdk:"extra_tags"`
+	KubeConfigContext types.String `tfsdk:"kube_config_context"`
+	KubeAPIServer     types.String `tfsdk:"kube_api_server"`
+	KubeClusterName   types.String `tfsdk:"kube_cluster_name"`
 }
 
 func New() provider.Provider {
@@ -73,14 +82,56 @@ func (p *PanfactumProvider) Schema(ctx context.Context, req provider.SchemaReque
 				MarkdownDescription: "Extra tags to apply to all resources",
 				ElementType:         types.StringType,
 			},
+			"kube_config_context": schema.StringAttribute{
+				Description:         "The name of the context from KUBE_CONFIG that is being used to deploy infrastructure",
+				MarkdownDescription: "The name of the context from KUBE_CONFIG that is being used to deploy infrastructure",
+				Optional:            true,
+			},
+			"kube_api_server": schema.StringAttribute{
+				Description:         "The HTTPS address of the Kubernetes API server to which infrastructure is being deployed",
+				MarkdownDescription: "The HTTPS address of the Kubernetes API server to which infrastructure is being deployed",
+				Optional:            true,
+			},
+			"kube_cluster_name": schema.StringAttribute{
+				Description:         "The name of the Kubernetes cluster that you are currently deploying infrastructure to",
+				MarkdownDescription: "The name of the Kubernetes cluster that you are currently deploying infrastructure to",
+				Optional:            true,
+			},
 		},
 	}
 }
 
 func (p *PanfactumProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	var data PanfactumProviderModel
-	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
-	resp.DataSourceData = &data
+	var model PanfactumProviderModel
+	var newProvider = PanfactumProvider{PanfactumProviderModel: &model}
+
+	// Step 1: Load the explicitly set data
+	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
+
+	// Step 2: Load config from environment variables
+	kubeCfgPath := os.Getenv("KUBE_CONFIG_PATH")
+	if kubeCfgPath != "" {
+		newProvider.KubeConfigPath = filepath.Clean(kubeCfgPath)
+	} else {
+		homePath, err := os.UserHomeDir()
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to load user home directory", fmt.Sprintf("%v", err))
+		}
+		newProvider.KubeConfigPath = filepath.Join(homePath, ".kube/config")
+	}
+
+	// Step 3: Load the cluster name based on the current context
+	kubeCfgContext := newProvider.KubeConfigContext.ValueString()
+	if kubeCfgContext != "" {
+		if clusterName, err := getKubeClusterName(newProvider.KubeConfigPath, kubeCfgContext); err != nil {
+			resp.Diagnostics.AddError("Unable to load cluster name", fmt.Sprintf("%v", err))
+		} else {
+			newProvider.KubeClusterName = types.StringValue(clusterName)
+		}
+	}
+
+	resp.DataSourceData = &newProvider
+	resp.ResourceData = &newProvider
 }
 
 func (p *PanfactumProvider) Resources(ctx context.Context) []func() resource.Resource {
@@ -91,6 +142,7 @@ func (p *PanfactumProvider) DataSources(ctx context.Context) []func() datasource
 	return []func() datasource.DataSource{
 		NewKubeLabelsDataSource,
 		NewAWSTagsDataSource,
+		NewMetadataDataSource,
 	}
 }
 
@@ -99,4 +151,39 @@ func (p *PanfactumProvider) Functions(ctx context.Context) []func() function.Fun
 		NewSanitizeAWSTagsFunction,
 		NewSanitizeKubeLabelsFunction,
 	}
+}
+
+/**************************************************************
+  Utility Functions
+ **************************************************************/
+
+type KubeConfig struct {
+	Contexts []struct {
+		Name    string `yaml:"name"`
+		Context struct {
+			Cluster string `yaml:"cluster"`
+		} `yaml:"context"`
+	} `yaml:"contexts"`
+}
+
+func getKubeClusterName(kubeConfigPath string, context string) (string, error) {
+	file, err := os.Open(kubeConfigPath)
+	if err != nil {
+		return "", fmt.Errorf("error opening YAML file: %v", err)
+	}
+	defer file.Close()
+
+	var cfg KubeConfig
+	decoder := yaml.NewDecoder(file)
+	if err := decoder.Decode(&cfg); err != nil {
+		return "", fmt.Errorf("error decoding YAML: %v", err)
+	}
+
+	for _, contextConfig := range cfg.Contexts {
+		if contextConfig.Name == context {
+			return contextConfig.Context.Cluster, nil
+		}
+	}
+
+	return "", fmt.Errorf("no context name %s found in kubeconfig file at %s", context, kubeConfigPath)
 }

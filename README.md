@@ -37,3 +37,10 @@ The release process is configured according
 to the [publishing guide provided by Hashicorp](https://developer.hashicorp.com/terraform/registry/providers/publishing)
 and is based on the [terraform-provider-scaffolding-framework](https://github.com/hashicorp/terraform-provider-scaffolding-framework)
 repository.
+
+To cut a new release:
+
+1. Run `go generate .` inside of the `tools` directory to update the documentation.
+2. Commit your changes.
+3. Tag the commit with a semver tag (e.g., `v0.0.1`).
+4. Push the changes `git push --atomic origin main <tag>`.

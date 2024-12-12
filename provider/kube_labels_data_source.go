@@ -23,7 +23,7 @@ func NewKubeLabelsDataSource() datasource.DataSource {
 }
 
 type kubeLabelsDataSource struct {
-	ProviderData *PanfactumProviderModel
+	ProviderData *PanfactumProvider
 }
 
 type kubeLabelsDataSourceModel struct {
@@ -61,7 +61,7 @@ func (d *kubeLabelsDataSource) Configure(ctx context.Context, req datasource.Con
 		return
 	}
 
-	data, ok := req.ProviderData.(*PanfactumProviderModel)
+	data, ok := req.ProviderData.(*PanfactumProvider)
 
 	if !ok {
 		resp.Diagnostics.AddError(

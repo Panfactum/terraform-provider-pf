@@ -36,6 +36,7 @@ type metadataDataSourceModel struct {
 	KubeConfigContext types.String `tfsdk:"kube_config_context"`
 	KubeAPIServer     types.String `tfsdk:"kube_api_server"`
 	KubeClusterName   types.String `tfsdk:"kube_cluster_name"`
+	SLATarget         types.Int32  `tfsdk:"sla_target"`
 }
 
 func (d *metadataDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -98,6 +99,11 @@ func (d *metadataDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 				MarkdownDescription: "The name of the Kubernetes cluster that you are currently deploying infrastructure to",
 				Computed:            true,
 			},
+			"sla_target": schema.Int32Attribute{
+				Description:         "The Panfactum SLA target for Panfactum modules",
+				MarkdownDescription: "The Panfactum SLA target for Panfactum modules",
+				Computed:            true,
+			},
 		},
 	}
 }
@@ -141,6 +147,7 @@ func (d *metadataDataSource) Read(ctx context.Context, req datasource.ReadReques
 	data.KubeConfigContext = d.ProviderData.KubeConfigContext
 	data.KubeAPIServer = d.ProviderData.KubeAPIServer
 	data.KubeClusterName = d.ProviderData.KubeClusterName
+	data.SLATarget = d.ProviderData.SLATarget
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

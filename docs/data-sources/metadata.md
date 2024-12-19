@@ -25,5 +25,6 @@ Provides metadata about the IaC deployment context.
 - `kube_config_path` (String) The path to the kubeconfig file that is being used to deploy infrastructure
 - `region` (String) The name of the region that you are currently deploying infrastructure to
 - `root_module` (String) The name of the root / top-level module that you are currently deploying infrastructure with
+- `sla_target` (Number) The Panfactum SLA target for Panfactum modules
 - `stack_commit` (String) The commit hash of the Panfactum Stack that you are currently using
 - `stack_version` (String) The version of the Panfactum Stack that you are currently using

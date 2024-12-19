@@ -6,11 +6,13 @@ package provider
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"gopkg.in/yaml.v3"
 	"os"
@@ -33,6 +35,7 @@ type PanfactumProviderModel struct {
 	KubeConfigContext types.String `tfsdk:"kube_config_context"`
 	KubeAPIServer     types.String `tfsdk:"kube_api_server"`
 	KubeClusterName   types.String `tfsdk:"kube_cluster_name"`
+	SLATarget         types.Int32  `tfsdk:"sla_target"`
 }
 
 func New() provider.Provider {
@@ -97,6 +100,15 @@ func (p *PanfactumProvider) Schema(ctx context.Context, req provider.SchemaReque
 				MarkdownDescription: "The name of the Kubernetes cluster that you are currently deploying infrastructure to",
 				Optional:            true,
 			},
+			"sla_target": schema.Int32Attribute{
+				Description:         "The Panfactum SLA target for Panfactum modules",
+				MarkdownDescription: "The Panfactum SLA target for Panfactum modules",
+				Optional:            true,
+				Validators: []validator.Int32{
+					int32validator.AtLeast(1),
+					int32validator.AtMost(3),
+				},
+			},
 		},
 	}
 }
@@ -128,6 +140,11 @@ func (p *PanfactumProvider) Configure(ctx context.Context, req provider.Configur
 		} else {
 			newProvider.KubeClusterName = types.StringValue(clusterName)
 		}
+	}
+
+	// Step 4: Apply Defaults
+	if newProvider.SLATarget.IsNull() || newProvider.SLATarget.IsUnknown() {
+		newProvider.SLATarget = types.Int32Value(3)
 	}
 
 	resp.DataSourceData = &newProvider
